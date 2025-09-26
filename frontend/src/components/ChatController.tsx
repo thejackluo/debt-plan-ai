@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ChatMessage, ChatTranscript } from "../types/chat";
 
-const INTRO_MESSAGE: ChatMessage = {
-  role: "assistant",
-  content:
-    "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?",
-};
+// Remove hardcoded intro message - let the backend agent generate the first response
 
 const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
@@ -21,8 +17,7 @@ const mapToDisplayMessages = (messages: ChatTranscript) =>
 
 const ensureTranscript = (
   messages: ChatTranscript | undefined
-): ChatTranscript =>
-  messages && messages.length > 0 ? messages : [INTRO_MESSAGE];
+): ChatTranscript => (messages && messages.length > 0 ? messages : []);
 
 const buildUserMessage = (content: string): ChatMessage => ({
   role: "user",
@@ -43,7 +38,7 @@ const createRequestId = (): string => {
 };
 
 export default function ChatController() {
-  const [transcript, setTranscript] = useState<ChatTranscript>([INTRO_MESSAGE]);
+  const [transcript, setTranscript] = useState<ChatTranscript>([]);
   const [draft, setDraft] = useState("");
   const [isHydrating, setIsHydrating] = useState(true);
   const [isPersisting, setIsPersisting] = useState(false);
@@ -80,7 +75,7 @@ export default function ChatController() {
         }
       } catch (error) {
         if (!isCancelled) {
-          setTranscript([INTRO_MESSAGE]);
+          setTranscript([]);
           setErrorMessage(
             error instanceof Error
               ? `Unable to load history: ${error.message}`
@@ -254,7 +249,7 @@ export default function ChatController() {
     }
 
     const previousTranscript = transcript;
-    const resetTranscript: ChatTranscript = [INTRO_MESSAGE];
+    const resetTranscript: ChatTranscript = [];
 
     setTranscript(resetTranscript);
     setIsPersisting(true);

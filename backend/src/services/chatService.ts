@@ -149,11 +149,6 @@ const processWithAgent = async (
       conversation_ended: false,
     };
 
-    // TODO: Story 1.5 will implement full agent processing
-    // For now, just add a placeholder response that shows the graph is working
-    let agentResponse =
-      "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?";
-
     logInfo("Agent processing status", {
       requestId,
       messageCount: messages.length,
@@ -161,36 +156,37 @@ const processWithAgent = async (
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
     });
 
-    // If this isn't the first message, run through the agent
-    if (messages.length > 1) {
-      try {
-        // Run the LangGraph agent with the updated v0.4.9 API
-        const result = await negotiationGraph.invoke(initialState);
+    // Always run through the agent for all messages
+    let agentResponse =
+      "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?";
 
-        // Extract the final message from the agent result
-        if (result.messages && result.messages.length > 0) {
-          const lastMessage = result.messages[result.messages.length - 1];
-          if (lastMessage && typeof lastMessage.content === "string") {
-            agentResponse = lastMessage.content;
-          }
+    try {
+      // Run the LangGraph agent with the updated v0.4.9 API
+      const result = await negotiationGraph.invoke(initialState);
+
+      // Extract the final message from the agent result
+      if (result.messages && result.messages.length > 0) {
+        const lastMessage = result.messages[result.messages.length - 1];
+        if (lastMessage && typeof lastMessage.content === "string") {
+          agentResponse = lastMessage.content;
         }
-
-        logInfo("LangGraph agent processed conversation", {
-          requestId,
-          userIntent: result.user_intent,
-          conversationEnded: result.conversation_ended,
-          currentOffer: result.current_offer,
-          finalAgreement: result.final_agreement,
-        });
-      } catch (error) {
-        logWarn("Agent processing failed, using fallback response", {
-          requestId,
-          error: error instanceof Error ? error.message : "Unknown error",
-          errorStack: error instanceof Error ? error.stack : undefined,
-        });
-        // For debugging: show what went wrong
-        agentResponse = `I understand you're trying to communicate with me. Let me help you resolve your $2400 debt. Can you tell me about your current situation?`;
       }
+
+      logInfo("LangGraph agent processed conversation", {
+        requestId,
+        userIntent: result.user_intent,
+        conversationEnded: result.conversation_ended,
+        currentOffer: result.current_offer,
+        finalAgreement: result.final_agreement,
+      });
+    } catch (error) {
+      logWarn("Agent processing failed, using fallback response", {
+        requestId,
+        error: error instanceof Error ? error.message : "Unknown error",
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
+      // For debugging: show what went wrong
+      agentResponse = `I understand you're trying to communicate with me. Let me help you resolve your $2400 debt. Can you tell me about your current situation?`;
     }
 
     const stream = createAgentStream(agentResponse);
@@ -218,7 +214,7 @@ const createDefaultDependencies = (): ChatServiceDependencies => ({
     return client(resolveModelName());
   },
   streamFn: streamText,
-  useAgent: false, // Temporarily disable LangGraph agent due to type issues
+  useAgent: true, // Enable LangGraph agent for Story 1.4
 });
 
 interface StreamChatOptions {
