@@ -42,3 +42,5 @@ next-env.d.ts
 .claude/
 .cursor/
 web-bundles/
+
+.env
