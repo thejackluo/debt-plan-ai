@@ -15,17 +15,29 @@ const createDefaultDependencies = (): ChatRouteDependencies => ({
   streamChatResponse,
 });
 
+/**
+ * Creates an abort controller that cancels the OpenAI request if the client
+ * disconnects mid-stream to avoid leaking work.
+ */
 const createAbortController = (req: Request) => {
   const controller = new AbortController();
   req.on("close", () => controller.abort());
   return controller;
 };
 
+/**
+ * Extracts the client-provided `x-request-id` or generates a UUID so every log
+ * line can be correlated across services.
+ */
 const extractRequestId = (req: Request): string => {
   const headerId = req.header("x-request-id");
   return headerId && headerId.trim().length > 0 ? headerId : randomUUID();
 };
 
+/**
+ * Factory for the chat router. Accepts dependencies for easier testing while the
+ * default export wires the production service implementation.
+ */
 export const createChatRouter = (
   deps: ChatRouteDependencies = createDefaultDependencies()
 ) => {
