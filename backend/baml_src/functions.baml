@@ -595,6 +595,7 @@ client<llm> GPT4Advanced {
     model "gpt-4o"
     temperature 0.1
     max_tokens 150
+    api_key env.OPENAI_API_KEY
   }
 }
 
@@ -604,6 +605,7 @@ client<llm> GPT4Security {
     model "gpt-4o"
     temperature 0.0
     max_tokens 50
+    api_key env.OPENAI_API_KEY
   }
 }
 
@@ -613,5 +615,6 @@ client<llm> GPT4Empathy {
     model "gpt-4o"
     temperature 0.3
     max_tokens 200
+    api_key env.OPENAI_API_KEY
   }
 }

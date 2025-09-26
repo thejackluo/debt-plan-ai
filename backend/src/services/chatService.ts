@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, type CoreMessage, type LanguageModel } from "ai";
 import { Readable } from "node:stream";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 import {
   defaultRetrySettings,
@@ -9,7 +10,7 @@ import {
   type ServiceResult,
 } from "../types/chat.types.js";
 import { logError, logInfo, logWarn } from "../utils/logger.js";
-import { negotiationAgent, type AgentStateType } from "../agent/graph.js";
+// import { negotiationGraph, type AgentState } from "../agent/graph.js"; // Temporarily disabled due to type issues
 
 export type ChatStream = Awaited<ReturnType<typeof streamText>>;
 
@@ -89,8 +90,24 @@ const createAgentStream = (agentResponse: string): ChatStream => {
     },
   });
 
+  // Create a proper StreamTextResult-compatible object
   return {
     textStream: readable,
+    text: Promise.resolve(agentResponse),
+    content: Promise.resolve(agentResponse),
+    reasoning: Promise.resolve([]),
+    reasoningText: Promise.resolve(""),
+    usage: Promise.resolve({
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    }),
+    finishReason: Promise.resolve("stop" as const),
+    experimental_providerMetadata: Promise.resolve({}),
+    warnings: undefined,
+    rawResponse: Promise.resolve({}),
+    request: Promise.resolve({}),
+    response: Promise.resolve({}),
     pipeTextStreamToResponse: (res: any, options?: any) => {
       if (options?.status) {
         res.status(options.status);
@@ -104,7 +121,7 @@ const createAgentStream = (agentResponse: string): ChatStream => {
       res.write(agentResponse);
       res.end();
     },
-  } as ChatStream;
+  } as unknown as ChatStream;
 };
 
 /**
@@ -121,67 +138,68 @@ const processWithAgent = async (
       messageCount: messages.length,
     });
 
+    // TODO: Re-enable agent when type issues are resolved
     // Initialize agent state
-    const initialState: AgentStateType = {
-      messages: messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      negotiation_attempts: 0,
-      conversation_ended: false,
-    };
+    // const initialState: AgentState = {
+    //   messages: messages.map((msg) =>
+    //     msg.role === "user"
+    //       ? new HumanMessage(msg.content)
+    //       : new AIMessage(msg.content)
+    //   ),
+    //   negotiation_attempts: 0,
+    //   conversation_ended: false,
+    // };
 
     // TODO: Story 1.5 will implement full agent processing
     // For now, just add a placeholder response that shows the graph is working
     let agentResponse =
       "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?";
 
+    logInfo("Agent processing status", {
+      requestId,
+      messageCount: messages.length,
+      isFirstMessage: messages.length === 1,
+      lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
+    });
+
+    // TODO: Re-enable agent when type issues are resolved
     // If this isn't the first message, run through the agent
     if (messages.length > 1) {
-      try {
-        // TODO: Temporarily disabled until LangGraph v0.0.33 schema is fixed
-        // const result = await negotiationAgent.invoke(initialState);
-        const result = {
-          user_intent: "negotiator",
-          current_offer: {
-            term_length: 6,
-            payment_amount: 400,
-            total_debt: 2400,
-          },
-          conversation_ended: false,
-        };
+      // For debugging: show that we're using OpenAI directly now
+      agentResponse = `[DEBUG] Using OpenAI directly (agent temporarily disabled). Your message: "${messages[messages.length - 1]?.content}"`;
 
-        // Generate appropriate response based on agent state
-        if (result.user_intent === "willing_payer") {
-          agentResponse =
-            "Great! I can see you're ready to work with us. Let me set up a payment plan for you.";
-        } else if (result.user_intent === "no_debt_claim") {
-          agentResponse =
-            "I understand you have concerns about this debt. Let me provide you with a reference number and contact information to resolve this matter.";
-        } else if (result.user_intent === "stonewaller") {
-          agentResponse =
-            "I understand this is difficult. Let me provide you with our final offer and contact information.";
-        } else {
-          // Default negotiator flow
-          const offer = result.current_offer || {
-            term_length: 6,
-            payment_amount: 400,
-            total_debt: 2400,
-          };
-          agentResponse = `I understand. We can work with you on a payment plan. How about $${offer.payment_amount} per month for ${offer.term_length} months?`;
-        }
+      // try {
+      //   // Run the LangGraph agent with the updated v0.4.9 API
+      //   const result = await negotiationGraph.invoke(initialState as any);
+      //
+      //   // Cast the result to our expected type
+      //   const agentResult = result as unknown as AgentState;
 
-        logInfo("LangGraph agent processed conversation", {
-          requestId,
-          userIntent: result.user_intent,
-          conversationEnded: result.conversation_ended,
-        });
-      } catch (error) {
-        logWarn("Agent processing failed, using fallback response", {
-          requestId,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+      //   // Extract the final message from the agent result
+      //   if (agentResult.messages && agentResult.messages.length > 0) {
+      //     const lastMessage =
+      //       agentResult.messages[agentResult.messages.length - 1];
+      //     if (lastMessage && typeof lastMessage.content === "string") {
+      //       agentResponse = lastMessage.content;
+      //     }
+      //   }
+
+      //   logInfo("LangGraph agent processed conversation", {
+      //     requestId,
+      //     userIntent: agentResult.user_intent,
+      //     conversationEnded: agentResult.conversation_ended,
+      //     currentOffer: agentResult.current_offer,
+      //     finalAgreement: agentResult.final_agreement,
+      //   });
+      // } catch (error) {
+      //   logWarn("Agent processing failed, using fallback response", {
+      //     requestId,
+      //     error: error instanceof Error ? error.message : "Unknown error",
+      //     errorStack: error instanceof Error ? error.stack : undefined,
+      //   });
+      //   // For debugging: show what went wrong
+      //   agentResponse = `[DEBUG] Agent failed: ${error instanceof Error ? error.message : "Unknown error"}. Using fallback response: ${agentResponse}`;
+      // }
     }
 
     const stream = createAgentStream(agentResponse);
@@ -209,7 +227,7 @@ const createDefaultDependencies = (): ChatServiceDependencies => ({
     return client(resolveModelName());
   },
   streamFn: streamText,
-  useAgent: true, // Enable LangGraph agent by default for Story 1.4
+  useAgent: false, // Temporarily disable LangGraph agent due to type issues
 });
 
 interface StreamChatOptions {
