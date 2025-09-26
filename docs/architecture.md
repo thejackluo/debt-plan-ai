@@ -159,6 +159,17 @@ This strategy focuses on efficiently verifying the core negotiation logic and it
 
 We will use a table-driven testing approach in Jest to run multiple scenarios through the agent logic efficiently. This ensures the key user pathways and negotiation thresholds are validated.
 
+### Comprehensive Test Suite
+
+In addition to unit tests, the project includes a **comprehensive test suite** with 10 detailed conversation scenarios covering both normal user behaviors and edge cases. See the complete **[Comprehensive Testing Plan](testing-comprehensive-plan.md)** for details.
+
+The comprehensive test suite includes:
+
+- **Normal Cases**: Compliant Payer, Cooperative Negotiator, Unrealistic Stonewaller, No Debt Claimant, What If Negotiator
+- **Edge Cases**: Prompt Injection Attacker, Good Faith Promise Maker, Emotional/Venting User, Split Payment Proposer, Bargain Hunter
+- **Automated validation** of conversation flows, URL generation, tone, and security measures
+- **Single command execution**: `npm run test:scenarios`
+
 **Example** (`backend/tests/agent.test.ts`):
 
 ```typescript

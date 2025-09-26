@@ -56,3 +56,15 @@
 - BAML functions are created for all required AI interactions.
 - The agent correctly handles the Payer, Negotiator, Stonewaller, and "No Debt" Claim case studies.
 - The agent successfully generates the correctly formatted collectwise.com/payments URL upon reaching an agreement.
+
+### Story 1.6: Comprehensive Test Suite Implementation
+
+**As a** developer, **I want** to implement a comprehensive automated test suite with 10 detailed conversation scenarios, **so that** I can ensure the chatbot handles all user types reliably and maintains quality over time.
+
+**Acceptance Criteria:**
+
+- A comprehensive test suite is implemented with 10 detailed conversation scenarios covering normal and edge cases.
+- Test scenarios include: Compliant Payer, Cooperative Negotiator, Unrealistic Stonewaller, No Debt Claimant, What If Negotiator, Prompt Injection Attacker, Good Faith Promise Maker, Emotional/Venting User, Split Payment Proposer, and Bargain Hunter.
+- An automated test runner script validates conversation flows, URL generation, tone, and security measures.
+- All tests can be executed with a single command (`npm run test:scenarios`) and provide clear pass/fail reporting.
+- The test suite integrates with the existing Jest testing framework and can be run as part of CI/CD pipeline.

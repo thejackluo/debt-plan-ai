@@ -87,5 +87,20 @@ describe("Negotiation Agent Scenarios", () => {
 });
 ```
 
+### Comprehensive Test Scenarios
+
+For detailed end-to-end testing, see the **[Comprehensive Testing Plan](../testing-comprehensive-plan.md)** which includes:
+
+- **10 detailed test scenarios** covering normal user behaviors and edge cases
+- **Automated test runner** for consistent validation
+- **Conversation flow testing** with expected outcomes
+- **Security testing** including prompt injection attacks
+- **Empathy and tone validation** for user experience quality
+
+The comprehensive test suite complements the unit tests above by providing full conversation flow validation and can be run with:
+
+```bash
+npm run test:scenarios
+```
+
 ---
-
