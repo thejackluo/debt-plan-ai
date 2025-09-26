@@ -12,9 +12,12 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.35",
+    "@boundaryml/baml": "^0.7.2",
+    "@langchain/langgraph": "^0.0.33",
     "ai": "^5.0.53",
     "cors": "2.8.5",
     "express": "5.1.0",
+    "langchain": "^0.2.16",
     "openai": "^5.23.0",
     "zod": "^3.25.76"
   },

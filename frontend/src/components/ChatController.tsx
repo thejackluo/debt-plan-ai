@@ -143,12 +143,23 @@ export default function ChatController() {
       body: JSON.stringify({ messages: conversation }),
     });
 
-    if (!response.ok || !response.body) {
-      throw new Error(
-        response.body
-          ? `Unexpected status ${response.status}`
-          : "Streaming is not supported in this environment"
-      );
+    if (!response.ok) {
+      let errorDetail = `Unexpected status ${response.status}`;
+
+      try {
+        const payload = (await response.json()) as { error?: string };
+        if (payload?.error) {
+          errorDetail = payload.error;
+        }
+      } catch (parseError) {
+        console.warn("Unable to parse chat error payload", parseError);
+      }
+
+      throw new Error(errorDetail);
+    }
+
+    if (!response.body) {
+      throw new Error("Streaming is not supported in this environment");
     }
 
     const reader = response.body.getReader();
