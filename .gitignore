@@ -44,3 +44,7 @@ next-env.d.ts
 web-bundles/
 
 .env
+
+node_modules/
+data/
+
