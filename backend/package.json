@@ -8,7 +8,7 @@
     "build": "tsc --project tsconfig.build.json",
     "start": "node dist/server.js",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
+    "test": "node --experimental-vm-modules -r dotenv/config ./node_modules/jest/bin/jest.js --runInBand"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.35",
@@ -16,6 +16,7 @@
     "@langchain/langgraph": "^0.4.9",
     "ai": "^5.0.53",
     "cors": "2.8.5",
+    "dotenv": "^17.2.2",
     "express": "5.1.0",
     "langchain": "^0.2.16",
     "openai": "^5.23.0",
