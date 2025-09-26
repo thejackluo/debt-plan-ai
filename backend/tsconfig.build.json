@@ -4,8 +4,8 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "baml_client/**/*.ts"],
   "exclude": ["src/tests/**/*", "tests/**/*"]
 }

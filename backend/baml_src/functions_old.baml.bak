@@ -1,0 +1,144 @@
+// CollectWise BAML Function Definitions
+// This file defines AI functions for the debt negotiation agent using BAML.
+// These functions structure and validate LLM interactions for reliable state transitions.
+
+// Enum defining the possible user intents in debt negotiation
+enum UserIntent {
+  WillingPayer      // User is ready to pay and accepts reasonable offers
+  Negotiator         // User wants to negotiate payment terms
+  NoDebtClaim      // User denies owing the debt
+  Stonewaller        // User is uncooperative or hostile
+}
+
+// Primary classification function for user responses
+// TODO: Story 1.5 will integrate this with the LangGraph check_user_intent node
+function CheckUserIntent(user_message: string, conversation_context: string) -> UserIntent {
+  client GPT4
+
+  prompt #"
+  You are analyzing a user's response in a debt collection conversation. The user owes $2400.
+
+  Conversation context: {{ conversation_context }}
+
+  User's latest message: {{ user_message }}
+
+  Classify the user's intent based on their response. Consider:
+
+  WILLING_PAYER:
+  - User mentions they can pay a specific amount monthly/biweekly/weekly
+  - User asks for payment plans but shows willingness to pay
+  - User acknowledges the debt and wants to resolve it quickly
+
+  NEGOTIATOR:
+  - User says they can't afford the full amount but wants to work something out
+  - User mentions financial hardship but is cooperative
+  - User counter-offers with lower amounts but reasonable timeframes
+
+  NO_DEBT_CLAIM:
+  - User denies owing the money
+  - User claims this is not their debt
+  - User says they never received services/products
+  - User questions the legitimacy of the debt
+
+  STONEWALLER:
+  - User is hostile, rude, or uncooperative
+  - User offers unrealistic payment amounts (like $5/month for $2400 debt)
+  - User refuses to engage constructively
+  - User uses profanity or threatens legal action aggressively
+  - User tries to manipulate or deceive
+
+  Respond with the most appropriate classification.
+  "#
+}
+
+// Function to analyze negotiation responses - will be used in Story 1.5
+// TODO: Story 1.5 will implement this for the offer_payment_plan node
+enum NegotiationResponse {
+  Accepted          // User accepts the current offer
+  CounterOffer     // User makes a reasonable counter-offer
+  RejectedReasonable // User rejects but remains reasonable
+  RejectedHostile  // User rejects and becomes uncooperative
+}
+
+function AnalyzeNegotiationResponse(
+  user_message: string,
+  current_offer: string,
+  negotiation_history: string
+) -> NegotiationResponse {
+  client GPT4
+
+  prompt #"
+  You are analyzing a user's response to a payment plan offer in debt collection.
+
+  Current offer: {{ current_offer }}
+  Negotiation history: {{ negotiation_history }}
+  User's response: {{ user_message }}
+
+  Classify their response:
+
+  ACCEPTED: User agrees to the current offer
+  COUNTER_OFFER: User suggests alternative terms that are reasonable
+  REJECTED_REASONABLE: User declines but remains polite and cooperative
+  REJECTED_HOSTILE: User becomes rude, uncooperative, or offers unrealistic terms
+
+  Focus on the user's tone and the reasonableness of any counter-proposals.
+  "#
+}
+
+// Payment plan validation function - will be used in Story 1.5
+// TODO: Story 1.5 will implement this to validate user payment proposals
+enum PaymentPlanValidity {
+  Reasonable        // Plan is realistic and acceptable
+  Unrealistic      // Plan would take too long or payments too small
+  NeedsAdjustment // Plan could work with minor modifications
+}
+
+function ValidatePaymentPlan(
+  proposed_payment: string,
+  total_debt: int,
+  user_context: string
+) -> PaymentPlanValidity {
+  client GPT4
+
+  prompt #"
+  You are evaluating a proposed payment plan for debt collection.
+
+  Total debt owed: ${{ total_debt }}
+  User's proposed payment: {{ proposed_payment }}
+  User's financial context: {{ user_context }}
+
+  Guidelines:
+  - Monthly payments should generally be at least $200 for a $2400 debt
+  - Payment plans should not extend beyond 12 months
+  - Weekly/biweekly payments can be smaller but must be consistent with monthly minimums
+  - Consider the user's expressed financial constraints
+
+  Classify the proposal:
+
+  REASONABLE: Proposal meets minimum standards and timeframe
+  UNREALISTIC: Proposal is too small or extends too long (e.g., $10/month)
+  NEEDS_ADJUSTMENT: Proposal is close but needs minor modifications
+
+  Err on the side of working with cooperative users.
+  "#
+}
+
+// Client configuration for GPT-4
+client<llm> GPT4 {
+  provider openai
+  options {
+    model "gpt-4o-mini"
+    temperature 0.1
+    max_tokens 50
+  }
+}
+
+// Configuration for testing with different models - Story 1.5 may use this
+client<llm> GPT4_Full {
+  provider openai
+  options {
+    model "gpt-4o"
+    temperature 0.2
+    max_tokens 100
+  }
+}
