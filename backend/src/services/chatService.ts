@@ -11,6 +11,10 @@ import { logError, logInfo, logWarn } from "../utils/logger.js";
 
 export type ChatStream = Awaited<ReturnType<typeof streamText>>;
 
+/**
+ * Resolves the OpenAI API key using production and local development fallbacks.
+ * Throws when no key is configured so callers can surface a 500-level error.
+ */
 const resolveOpenAIApiKey = (): string => {
   const key = process.env.OPENAI_API_KEY ?? process.env.LOCAL_OPENAI_API_KEY;
 
@@ -23,8 +27,15 @@ const resolveOpenAIApiKey = (): string => {
   return key;
 };
 
+/**
+ * Uses an environment override for the model and falls back to `gpt-4o-mini` to
+ * balance latency and cost for negotiation flows.
+ */
 const resolveModelName = (): string => process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
+/**
+ * Translates CollectWise chat messages into the AI SDK structure.
+ */
 const mapMessages = (messages: ChatMessage[]): CoreMessage[] =>
   messages.map((message) => ({
     role: message.role,
@@ -33,6 +44,10 @@ const mapMessages = (messages: ChatMessage[]): CoreMessage[] =>
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Flags OpenAI/Vercel AI SDK errors that are safe to retry (timeouts, rate limits,
+ * or transient server failures). Non-network 4xx errors short-circuit retries.
+ */
 const isRetryableError = (error: unknown): boolean => {
   if (!error || typeof error !== "object") {
     return false;
@@ -73,6 +88,11 @@ interface StreamChatOptions {
   abortSignal?: AbortSignal;
 }
 
+/**
+ * Streams a response from OpenAI using the Vercel AI SDK. Includes structured
+ * logging and exponential backoff to improve reliability when the upstream API
+ * throttles or flakes. Returns a {@link ServiceResult} wrapping the stream.
+ */
 export const streamChatResponse = async ({
   messages,
   requestId,

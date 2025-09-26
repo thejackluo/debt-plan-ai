@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import type { ChatMessage, ChatRequestBody, ServiceResult } from "../types/chat.types.js";
 
+/**
+ * Runtime schema describing the subset of OpenAI chat messages accepted from the
+ * frontend. Restricts roles and ensures content is non-empty after trimming.
+ */
 const chatMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant"], {
     errorMap: () => ({ message: "role must be system, user, or assistant" }),
@@ -12,6 +16,10 @@ const chatMessageSchema = z.object({
     .min(1, "content cannot be empty"),
 });
 
+/**
+ * Schema for the `/api/chat` request payload. Ensures at least one message is sent
+ * and delegates per-message validation to {@link chatMessageSchema}.
+ */
 const chatRequestSchema = z.object({
   messages: z
     .array(chatMessageSchema, { invalid_type_error: "messages must be an array" })
@@ -20,6 +28,10 @@ const chatRequestSchema = z.object({
 
 export interface ValidatedChatPayload extends ChatRequestBody {}
 
+/**
+ * Validates and sanitises an incoming `/api/chat` payload, returning a typed result
+ * that isolates caller-friendly error messages for HTTP responses.
+ */
 export const validateChatRequest = (
   payload: unknown
 ): ServiceResult<ValidatedChatPayload> => {

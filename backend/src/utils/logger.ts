@@ -6,6 +6,10 @@ interface LogOptions {
   context?: Record<string, unknown>;
 }
 
+/**
+ * Serialises logs into structured JSON so they appear cleanly inside Vercel's
+ * aggregated function logs.
+ */
 const serialize = ({ level, message, context }: LogOptions): string =>
   JSON.stringify({
     level,
