@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     typedRoutes: true,
+    externalDir: true,
   },
 };
 
