@@ -14,7 +14,10 @@ const chatMessageSchema = z.object({
   role: z.enum(["system", "user", "assistant"], {
     errorMap: () => ({ message: "role must be system, user, or assistant" }),
   }),
-  content: z.string({ required_error: "content is required" }).trim(), // Allow empty content for streaming scenarios
+  content: z
+    .string({ required_error: "content is required" })
+    .trim()
+    .min(1, "content cannot be empty"),
 });
 
 /**

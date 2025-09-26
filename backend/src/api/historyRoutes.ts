@@ -10,7 +10,7 @@ import { logError } from "../utils/logger.js";
 
 const messageSchema = z.object({
   role: z.enum(["assistant", "user", "system"]),
-  content: z.string(), // Allow empty content for streaming scenarios
+  content: z.string().trim().min(1, "content cannot be empty"),
 });
 
 const transcriptSchema = z.object({
