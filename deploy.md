@@ -1,5 +1,9 @@
 # Deployment Guide (Vercel)
 
+## Deployment Status
+
+✅ **DEPLOYED**: Both frontend and backend are now successfully deployed on Vercel.
+
 ## Overview
 
 This guide explains how to deploy the **CollectWise Chatbot** to Vercel. Because our project uses a **polyrepo** structure (separate `frontend` and `backend` folders in one GitHub repository), we will create **two distinct Vercel projects**.
