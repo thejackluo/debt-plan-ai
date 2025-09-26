@@ -19,7 +19,9 @@ const mapToDisplayMessages = (messages: ChatTranscript) =>
     ...message,
   }));
 
-const ensureTranscript = (messages: ChatTranscript | undefined): ChatTranscript =>
+const ensureTranscript = (
+  messages: ChatTranscript | undefined
+): ChatTranscript =>
   messages && messages.length > 0 ? messages : [INTRO_MESSAGE];
 
 const buildUserMessage = (content: string): ChatMessage => ({
@@ -68,7 +70,9 @@ export default function ChatController() {
           throw new Error(`Unexpected status ${response.status}`);
         }
 
-        const payload = (await response.json()) as { messages?: ChatTranscript };
+        const payload = (await response.json()) as {
+          messages?: ChatTranscript;
+        };
 
         if (!isCancelled) {
           setTranscript(ensureTranscript(payload.messages));
@@ -278,17 +282,13 @@ export default function ChatController() {
   };
 
   return (
-    <section className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-2xl backdrop-blur-xl">
-      <div className="pointer-events-none absolute inset-0 opacity-40">
-        <div className="absolute -top-32 right-0 h-64 w-64 rounded-full bg-brand-600/60 blur-3xl" />
-        <div className="absolute bottom-0 left-[-4rem] h-72 w-72 rounded-full bg-brand-300/30 blur-[120px]" />
-      </div>
-      <header className="relative z-10 mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
+      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-brand-300">
+          <h1 className="text-3xl font-medium text-gray-900">
             CollectWise Negotiation Agent
           </h1>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-3 text-sm text-gray-600 leading-relaxed">
             A minimal chat UI that stores transcripts in the backend history
             service. The negotiation flow will connect in a follow-up story.
           </p>
@@ -296,7 +296,7 @@ export default function ChatController() {
         <button
           type="button"
           onClick={handleDeleteHistory}
-          className="self-start rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="self-start rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isBusy}
         >
           Delete History
@@ -306,19 +306,19 @@ export default function ChatController() {
       {errorMessage && (
         <div
           role="alert"
-          className="relative z-10 mb-4 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200"
+          className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
         >
           {errorMessage}
         </div>
       )}
 
       <div
-        className="relative z-10 space-y-3 overflow-y-auto rounded-xl bg-slate-950/40 p-4"
+        className="mb-6 max-h-96 space-y-4 overflow-y-auto rounded-lg bg-gray-50 p-6"
         aria-live="polite"
         aria-busy={isHydrating}
       >
         {isHydrating ? (
-          <p className="text-sm text-slate-400">Loading history…</p>
+          <p className="text-sm text-gray-500">Loading history…</p>
         ) : (
           displayMessages.map((message) => (
             <article
@@ -327,15 +327,15 @@ export default function ChatController() {
                 message.role === "assistant" ? "justify-start" : "justify-end"
               }`}
             >
-              <p
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-lg ${
+              <div
+                className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm ${
                   message.role === "assistant"
-                    ? "bg-brand-700 text-white"
-                    : "bg-slate-800 text-slate-100"
+                    ? "bg-white border border-gray-200 text-gray-900"
+                    : "bg-gray-900 text-white"
                 }`}
               >
                 {message.content}
-              </p>
+              </div>
             </article>
           ))
         )}
@@ -343,26 +343,26 @@ export default function ChatController() {
 
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 mt-6 flex items-center gap-3 rounded-full border border-white/5 bg-slate-950/80 p-2 shadow-lg"
+        className="flex items-center gap-3 rounded-lg border border-gray-300 bg-white p-3 shadow-sm focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400"
       >
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Describe your situation and desired plan..."
-          className="flex-1 rounded-full bg-transparent px-4 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+          className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500"
           aria-label="Chat message"
           disabled={isBusy}
         />
         <button
           type="submit"
-          className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-gray-900 px-6 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isBusy}
         >
           {isStreaming ? "Sending…" : isPersisting ? "Saving…" : "Send"}
         </button>
       </form>
 
-      <p className="relative z-10 mt-3 text-center text-xs text-slate-400">
+      <p className="mt-4 text-center text-xs text-gray-500">
         Conversation saves automatically whenever the backend is reachable.
       </p>
     </section>
