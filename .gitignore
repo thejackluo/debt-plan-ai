@@ -47,4 +47,6 @@ web-bundles/
 
 node_modules/
 data/
+.next
+
 
