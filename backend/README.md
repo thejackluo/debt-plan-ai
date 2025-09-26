@@ -151,29 +151,48 @@ Returns server status and basic diagnostics.
 
 **POST** `/api/chat`
 
-Processes conversation through the LangGraph negotiation agent.
+Proxies a full conversation transcript to OpenAI via the Vercel AI SDK and
+streams the assistant's response back to the caller as plain-text chunks.
 
-**Request Body:**
+**Request Body**
 
 ```json
 {
   "messages": [
     {
+      "role": "system",
+      "content": "You are a debt negotiation assistant."
+    },
+    {
       "role": "user",
-      "content": "I can't pay the full amount right now"
+      "content": "I can't pay $2400 right now, can we break it up?"
     }
   ]
 }
 ```
 
-**Response:**
-Streaming response with AI-generated reply based on negotiation state.
+**Streaming Response**
 
-**Error Responses:**
+The endpoint returns `text/plain` chunks. A simple cURL session illustrates the
+behaviour:
 
-- `400` - Invalid request format
-- `500` - Internal server error
-- `503` - OpenAI API unavailable
+```bash
+curl \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: demo-123" \
+  -d '{"messages":[{"role":"user","content":"Hi there"}]}' \
+  --no-buffer \
+  http://localhost:4000/api/chat
+```
+
+If the caller omits `X-Request-Id`, the backend generates a UUID so logs remain
+traceable.
+
+**Error Responses**
+
+- `400` – Invalid payload (fails Zod validation)
+- `502` – Upstream OpenAI failure after retries
+- `500` – Unexpected server error
 
 ### History Management
 
