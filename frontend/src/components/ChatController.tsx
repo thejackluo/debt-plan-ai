@@ -71,18 +71,19 @@ export default function ChatController() {
 
         if (!isCancelled) {
           const loadedTranscript = ensureTranscript(payload.messages);
-          
+
           // If no history exists, start with the initial greeting message
           if (loadedTranscript.length === 0) {
             const initialMessage: ChatMessage = {
               role: "assistant",
-              content: "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?"
+              content:
+                "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?",
             };
             setTranscript([initialMessage]);
           } else {
             setTranscript(loadedTranscript);
           }
-          
+
           setErrorMessage(null);
         }
       } catch (error) {
@@ -90,7 +91,8 @@ export default function ChatController() {
           // Even if we can't load history, start with the initial greeting message
           const initialMessage: ChatMessage = {
             role: "assistant",
-            content: "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?"
+            content:
+              "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?",
           };
           setTranscript([initialMessage]);
           setErrorMessage(
