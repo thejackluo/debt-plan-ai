@@ -156,11 +156,14 @@ const processWithAgent = async (
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
     });
 
-    // Always run through the agent for all messages
-    let agentResponse =
-      "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?";
+    // Handle first message vs. conversation continuation
+    let agentResponse = "";
 
     try {
+      // Check if this is the very first message of the conversation
+      const isFirstMessage = messages.length === 1 && messages[0].role === "user";
+
+      // Don't add hardcoded greeting - let the agent generate contextual openings
       // Run the LangGraph agent with the updated v0.4.9 API
       const result = await negotiationGraph.invoke(initialState);
 
@@ -169,6 +172,15 @@ const processWithAgent = async (
         const lastMessage = result.messages[result.messages.length - 1];
         if (lastMessage && typeof lastMessage.content === "string") {
           agentResponse = lastMessage.content;
+        }
+      }
+
+      // Fallback if no response generated
+      if (!agentResponse) {
+        if (isFirstMessage) {
+          agentResponse = "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?";
+        } else {
+          agentResponse = "I understand you're trying to communicate with me. Let me help you resolve your $2400 debt. Can you tell me about your current situation?";
         }
       }
 

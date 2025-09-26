@@ -55,6 +55,17 @@ export class NegotiationGraph {
       "messages"
     );
 
+    // Step 0: Handle fresh conversation start (only user message, no AI greeting yet)
+    const hasOnlyUserMessage = state.messages.length === 1 &&
+                              state.messages[0]._getType() === "human";
+
+    if (hasOnlyUserMessage) {
+      // Analyze the user's first message and provide contextual opening
+      state = await this.checkUserIntent(state);
+      state = await this.generateContextualOpening(state);
+      return state;
+    }
+
     // Step 1: Analyze user intent if we haven't already
     if (!state.user_intent && state.messages.length > 0) {
       state = await this.checkUserIntent(state);
@@ -168,6 +179,45 @@ export class NegotiationGraph {
   }
 
   /**
+   * Generates a contextual opening message using BAML AI based on the user's first message.
+   * This creates dynamic, personalized responses instead of predetermined templates.
+   *
+   * @param state - Current agent state with classified user intent
+   * @returns Updated state with AI-generated contextual opening message
+   */
+  private async generateContextualOpening(state: AgentState): Promise<AgentState> {
+    console.log("Generating AI contextual opening for intent:", state.user_intent);
+
+    const userMessage = state.messages[0]?.content as string || "";
+
+    try {
+      // Generate dynamic opening using BAML AI
+      const openingMessage = await b.GenerateContextualOpening(
+        userMessage,
+        state.user_intent?.toString() || "Unknown",
+        state.emotional_state?.toString() || "Calm"
+      );
+
+      console.log("Generated dynamic opening:", openingMessage);
+
+      return {
+        ...state,
+        messages: [...state.messages, new AIMessage(openingMessage)],
+      };
+    } catch (error) {
+      console.error("Error generating contextual opening:", error);
+
+      // Intelligent fallback that still acknowledges what they said
+      const fallbackMessage = `I understand you're reaching out about your account. Let me help you find the best way to resolve your $2400 debt. What would work best for your situation?`;
+
+      return {
+        ...state,
+        messages: [...state.messages, new AIMessage(fallbackMessage)],
+      };
+    }
+  }
+
+  /**
    * Routes the conversation to the appropriate handler based on user intent and security assessment.
    * Implements the conditional edges from the LangGraph flow diagram in the PRD.
    *
@@ -212,107 +262,312 @@ export class NegotiationGraph {
   }
 
   /**
-   * Handles users who are willing to pay (WillingPayer intent).
+   * Handles users who are willing to pay using AI-generated responses.
    * Offers both immediate full payment and reasonable payment plan options.
    *
    * @param state - Current agent state
-   * @returns Updated state with payment options and current offer
+   * @returns Updated state with AI-generated payment options and current offer
    */
   private async handlePayer(state: AgentState): Promise<AgentState> {
-    console.log("Handling willing payer");
-    const paymentUrl = this.generatePaymentUrl(2400);
-    const response = `Great! I can see you're ready to resolve this. You can pay the full $2400 immediately at: ${paymentUrl}\n\nOr if you prefer a payment plan, I can offer you $400/month for 6 months. Would either of these work for you?`;
+    console.log("Handling willing payer with AI response");
 
-    return {
-      ...state,
-      current_offer: "$400/month for 6 months",
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.WillingPayer.toString(),
+        state.emotional_state?.toString() || "Calm",
+        "User is ready to pay - offering payment options",
+        "Initial payment options",
+        state.negotiation_attempts || 0
+      );
+
+      return {
+        ...state,
+        current_offer: "$400/month for 6 months",
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating payer response:", error);
+      const paymentUrl = this.generatePaymentUrl(2400);
+      const fallbackResponse = `Great! I can see you're ready to resolve this. You can pay the full $2400 immediately at: ${paymentUrl}\n\nOr if you prefer a payment plan, I can offer you $400/month for 6 months. Would either of these work for you?`;
+
+      return {
+        ...state,
+        current_offer: "$400/month for 6 months",
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   /**
-   * Handles users who need negotiation (CooperativeNegotiator, ResistantNegotiator).
+   * Handles users who need negotiation using AI-generated responses.
    * Implements the tiered offer strategy: $400/6mo → $200/12mo → escalate to stonewaller.
    *
    * @param state - Current agent state with negotiation attempt count
-   * @returns Updated state with new offer or escalation to stonewaller
+   * @returns Updated state with AI-generated offer or escalation to stonewaller
    */
   private async handleNegotiator(state: AgentState): Promise<AgentState> {
-    console.log("Handling negotiator");
+    console.log("Handling negotiator with AI response");
     const attempts = state.negotiation_attempts || 0;
-    let offer: string;
-    let response: string;
 
-    if (attempts === 0) {
-      offer = "$400/month for 6 months";
-      response = `I understand you'd like to work out a payment plan. For the $2400 debt, I can offer you ${offer}. This would resolve your account quickly. Does this work for you?`;
-    } else if (attempts === 1) {
-      offer = "$200/month for 12 months";
-      response = `I see you need a more affordable option. Let me offer you ${offer}. This is a very reasonable plan that gives you more breathing room. Can you commit to this?`;
-    } else {
+    // After 2 attempts, escalate to stonewaller
+    if (attempts >= 2) {
       return this.handleStonewaller(state);
     }
 
-    return {
-      ...state,
-      current_offer: offer,
-      negotiation_attempts: attempts + 1,
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    let offer: string;
+    let negotiationContext: string;
+
+    if (attempts === 0) {
+      offer = "$400/month for 6 months";
+      negotiationContext = "First negotiation offer - standard payment plan";
+    } else {
+      offer = "$200/month for 12 months";
+      negotiationContext = "Second negotiation offer - more affordable extended plan";
+    }
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        state.user_intent?.toString() || "CooperativeNegotiator",
+        state.emotional_state?.toString() || "Calm",
+        negotiationContext,
+        offer,
+        attempts + 1
+      );
+
+      return {
+        ...state,
+        current_offer: offer,
+        negotiation_attempts: attempts + 1,
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating negotiator response:", error);
+
+      // Fallback responses
+      const fallbackResponse = attempts === 0
+        ? `I understand you'd like to work out a payment plan. For the $2400 debt, I can offer you ${offer}. This would resolve your account quickly. Does this work for you?`
+        : `I see you need a more affordable option. Let me offer you ${offer}. This is a very reasonable plan that gives you more breathing room. Can you commit to this?`;
+
+      return {
+        ...state,
+        current_offer: offer,
+        negotiation_attempts: attempts + 1,
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleNoDebtClaim(state: AgentState): Promise<AgentState> {
-    console.log("Handling debt denial");
-    const response = `I understand you believe this debt isn't yours. Let me transfer you to our verification department who can review your account details and provide documentation. They can be reached at 1-800-COLLECT-1. Is there anything else I can help clarify about this account?`;
+    console.log("Handling debt denial with AI response");
 
-    return {
-      ...state,
-      conversation_ended: true,
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.NoDebtClaimant.toString(),
+        state.emotional_state?.toString() || "Defiant",
+        "User denies owing the debt - verification process",
+        "No current offer",
+        0
+      );
+
+      return {
+        ...state,
+        conversation_ended: true,
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating no debt claim response:", error);
+      const fallbackResponse = `I understand you believe this debt isn't yours. Let me transfer you to our verification department who can review your account details and provide documentation. They can be reached at 1-800-COLLECT-1. Is there anything else I can help clarify about this account?`;
+
+      return {
+        ...state,
+        conversation_ended: true,
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleStonewaller(state: AgentState): Promise<AgentState> {
-    console.log("Handling stonewaller");
-    const response = `I understand this is a difficult situation. Since we haven't been able to reach an agreement today, I'll need to escalate this to our legal department. You'll receive formal documentation within 10 business days. If you'd like to avoid legal proceedings, please call us at 1-800-COLLECT-1 to discuss payment options. Have a good day.`;
+    console.log("Handling stonewaller with AI response");
 
-    return {
-      ...state,
-      conversation_ended: true,
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.Stonewaller.toString(),
+        state.emotional_state?.toString() || "Angry",
+        "User is uncooperative - final attempt before escalation",
+        "Final offer before escalation",
+        state.negotiation_attempts || 3
+      );
+
+      return {
+        ...state,
+        conversation_ended: true,
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating stonewaller response:", error);
+      const fallbackResponse = `I understand this is a difficult situation. Since we haven't been able to reach an agreement today, I'll need to escalate this to our legal department. You'll receive formal documentation within 10 business days. If you'd like to avoid legal proceedings, please call us at 1-800-COLLECT-1 to discuss payment options. Have a good day.`;
+
+      return {
+        ...state,
+        conversation_ended: true,
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleEmotionalUser(state: AgentState): Promise<AgentState> {
-    console.log("Handling emotional user");
-    const response = `I truly understand you're going through a difficult time. Let's take the pressure off with our most flexible payment plan: $200 per month for 12 months. This small, manageable amount can help reduce your stress while resolving the debt. Does this sound manageable?`;
+    console.log("Handling emotional user with AI response");
 
-    return {
-      ...state,
-      current_offer: "$200/month for 12 months",
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.EmotionalDistressed.toString(),
+        state.emotional_state?.toString() || "Overwhelmed",
+        "User is emotionally distressed - offering most flexible terms",
+        "$200/month for 12 months",
+        0
+      );
+
+      return {
+        ...state,
+        current_offer: "$200/month for 12 months",
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating emotional user response:", error);
+      const fallbackResponse = `I truly understand you're going through a difficult time. Let's take the pressure off with our most flexible payment plan: $200 per month for 12 months. This small, manageable amount can help reduce your stress while resolving the debt. Does this sound manageable?`;
+
+      return {
+        ...state,
+        current_offer: "$200/month for 12 months",
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleSecurityThreat(state: AgentState): Promise<AgentState> {
-    console.log("Handling security threat");
-    const response = `I understand you might be trying different approaches, but I'm here specifically to help resolve your $2400 debt. Let's focus on finding a payment solution that works for you. Would you like to discuss payment options?`;
+    console.log("Handling security threat with AI response");
 
-    return {
-      ...state,
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.PromptInjector.toString(),
+        "Manipulative",
+        "User attempting prompt injection - redirecting to debt focus",
+        "No current offer",
+        0
+      );
+
+      return {
+        ...state,
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating security threat response:", error);
+      const fallbackResponse = `I understand you might be trying different approaches, but I'm here specifically to help resolve your $2400 debt. Let's focus on finding a payment solution that works for you. Would you like to discuss payment options?`;
+
+      return {
+        ...state,
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleBargainHunter(state: AgentState): Promise<AgentState> {
-    console.log("Handling bargain hunter");
-    const response = `I appreciate your interest in resolving this quickly. While I cannot adjust the total debt amount of $2400, I have significant flexibility in structuring your payment plan. I can offer you up to 12 months to make this as manageable as possible. Would you prefer $400/month for 6 months or $200/month for 12 months?`;
+    console.log("Handling bargain hunter with AI response");
 
-    return {
-      ...state,
-      current_offer: "$400/month for 6 months OR $200/month for 12 months",
-      messages: [...state.messages, new AIMessage(response)],
-    };
+    const lastMessage = state.messages[state.messages.length - 1];
+    const userMessage = typeof lastMessage?.content === "string" ? lastMessage.content : "";
+
+    const conversationHistory = state.messages
+      .slice(-3)
+      .map((msg) => `${msg._getType()}: ${msg.content}`)
+      .join("\n");
+
+    try {
+      const response = await b.GenerateNegotiationResponse(
+        userMessage,
+        conversationHistory,
+        UserIntent.BargainHunter.toString(),
+        state.emotional_state?.toString() || "Calm",
+        "User seeking to negotiate total debt amount - clarifying payment plan flexibility",
+        "$400/month for 6 months OR $200/month for 12 months",
+        0
+      );
+
+      return {
+        ...state,
+        current_offer: "$400/month for 6 months OR $200/month for 12 months",
+        messages: [...state.messages, new AIMessage(response)],
+      };
+    } catch (error) {
+      console.error("Error generating bargain hunter response:", error);
+      const fallbackResponse = `I appreciate your interest in resolving this quickly. While I cannot adjust the total debt amount of $2400, I have significant flexibility in structuring your payment plan. I can offer you up to 12 months to make this as manageable as possible. Would you prefer $400/month for 6 months or $200/month for 12 months?`;
+
+      return {
+        ...state,
+        current_offer: "$400/month for 6 months OR $200/month for 12 months",
+        messages: [...state.messages, new AIMessage(fallbackResponse)],
+      };
+    }
   }
 
   private async handleSplitPayment(state: AgentState): Promise<AgentState> {
