@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { historyRepository } from "../repositories/historyRepository.js";
+import {
+  historyRepository,
+  type HistoryRepository,
+} from "../repositories/historyRepository.js";
 import type { ChatTranscript } from "../types/chat.types.js";
 import { logError } from "../utils/logger.js";
 
@@ -14,52 +17,65 @@ const transcriptSchema = z.object({
   messages: z.array(messageSchema),
 });
 
-const router = Router();
+export interface HistoryRouterOptions {
+  repository?: HistoryRepository;
+}
 
-router.get("/", async (_req, res) => {
-  try {
-    const history = await historyRepository.read();
-    res.status(200).json({ messages: history });
-  } catch (error) {
-    logError("Failed to read chat history", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    res.status(500).json({ message: "Unable to load chat history" });
-  }
-});
+export const createHistoryRouter = (
+  options: HistoryRouterOptions = {}
+) => {
+  const router = Router();
+  const repository = options.repository ?? historyRepository;
 
-router.post("/", async (req, res) => {
-  const parseResult = transcriptSchema.safeParse(req.body);
+  router.get("/", async (_req, res) => {
+    try {
+      const history = await repository.read();
+      res.status(200).json({ messages: history });
+    } catch (error) {
+      logError("Failed to read chat history", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      res.status(500).json({ message: "Unable to load chat history" });
+    }
+  });
 
-  if (!parseResult.success) {
-    res.status(400).json({
-      message: "Invalid chat transcript",
-      issues: parseResult.error.issues,
-    });
-    return;
-  }
+  router.post("/", async (req, res) => {
+    const parseResult = transcriptSchema.safeParse(req.body);
 
-  try {
-    await historyRepository.write(parseResult.data.messages as ChatTranscript);
-    res.status(204).send();
-  } catch (error) {
-    logError("Failed to persist chat history", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    res.status(500).json({ message: "Unable to save chat history" });
-  }
-});
+    if (!parseResult.success) {
+      res.status(400).json({
+        message: "Invalid chat transcript",
+        issues: parseResult.error.issues,
+      });
+      return;
+    }
 
-router.delete("/", async (_req, res) => {
-  try {
-    await historyRepository.clear();
-    res.status(204).send();
-  } catch (error) {
-    logError("Failed to clear chat history", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    res.status(500).json({ message: "Unable to delete chat history" });
-  }
-});
+    try {
+      await repository.write(parseResult.data.messages as ChatTranscript);
+      res.status(204).send();
+    } catch (error) {
+      logError("Failed to persist chat history", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      res.status(500).json({ message: "Unable to save chat history" });
+    }
+  });
 
-export default router;
+  router.delete("/", async (_req, res) => {
+    try {
+      await repository.clear();
+      res.status(204).send();
+    } catch (error) {
+      logError("Failed to clear chat history", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      res.status(500).json({ message: "Unable to delete chat history" });
+    }
+  });
+
+  return router;
+};
+
+const historyRouter = createHistoryRouter();
+
+export default historyRouter;

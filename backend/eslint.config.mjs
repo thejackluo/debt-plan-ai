@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import eslintPluginJs from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import pluginImport from "eslint-plugin-import";
@@ -5,7 +7,7 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-const projectRoot = new URL(".", import.meta.url);
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default [
   eslintPluginJs.configs.recommended,
