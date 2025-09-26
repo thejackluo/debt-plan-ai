@@ -10,7 +10,7 @@ import { logError } from "../utils/logger.js";
 
 const messageSchema = z.object({
   role: z.enum(["assistant", "user", "system"]),
-  content: z.string().min(1),
+  content: z.string(), // Allow empty content for streaming scenarios
 });
 
 const transcriptSchema = z.object({
@@ -21,9 +21,7 @@ export interface HistoryRouterOptions {
   repository?: HistoryRepository;
 }
 
-export const createHistoryRouter = (
-  options: HistoryRouterOptions = {}
-) => {
+export const createHistoryRouter = (options: HistoryRouterOptions = {}) => {
   const router = Router();
   const repository = options.repository ?? historyRepository;
 

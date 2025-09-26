@@ -10,7 +10,7 @@ import {
   type ServiceResult,
 } from "../types/chat.types.js";
 import { logError, logInfo, logWarn } from "../utils/logger.js";
-// import { negotiationGraph, type AgentState } from "../agent/graph.js"; // Temporarily disabled due to type issues
+import { negotiationGraph, type AgentState } from "../agent/graph.js";
 
 export type ChatStream = Awaited<ReturnType<typeof streamText>>;
 
@@ -138,17 +138,16 @@ const processWithAgent = async (
       messageCount: messages.length,
     });
 
-    // TODO: Re-enable agent when type issues are resolved
     // Initialize agent state
-    // const initialState: AgentState = {
-    //   messages: messages.map((msg) =>
-    //     msg.role === "user"
-    //       ? new HumanMessage(msg.content)
-    //       : new AIMessage(msg.content)
-    //   ),
-    //   negotiation_attempts: 0,
-    //   conversation_ended: false,
-    // };
+    const initialState: AgentState = {
+      messages: messages.map((msg) =>
+        msg.role === "user"
+          ? new HumanMessage(msg.content)
+          : new AIMessage(msg.content)
+      ),
+      negotiation_attempts: 0,
+      conversation_ended: false,
+    };
 
     // TODO: Story 1.5 will implement full agent processing
     // For now, just add a placeholder response that shows the graph is working
@@ -162,44 +161,36 @@ const processWithAgent = async (
       lastMessage: messages[messages.length - 1]?.content?.substring(0, 100),
     });
 
-    // TODO: Re-enable agent when type issues are resolved
     // If this isn't the first message, run through the agent
     if (messages.length > 1) {
-      // For debugging: show that we're using OpenAI directly now
-      agentResponse = `[DEBUG] Using OpenAI directly (agent temporarily disabled). Your message: "${messages[messages.length - 1]?.content}"`;
+      try {
+        // Run the LangGraph agent with the updated v0.4.9 API
+        const result = await negotiationGraph.invoke(initialState);
 
-      // try {
-      //   // Run the LangGraph agent with the updated v0.4.9 API
-      //   const result = await negotiationGraph.invoke(initialState as any);
-      //
-      //   // Cast the result to our expected type
-      //   const agentResult = result as unknown as AgentState;
+        // Extract the final message from the agent result
+        if (result.messages && result.messages.length > 0) {
+          const lastMessage = result.messages[result.messages.length - 1];
+          if (lastMessage && typeof lastMessage.content === "string") {
+            agentResponse = lastMessage.content;
+          }
+        }
 
-      //   // Extract the final message from the agent result
-      //   if (agentResult.messages && agentResult.messages.length > 0) {
-      //     const lastMessage =
-      //       agentResult.messages[agentResult.messages.length - 1];
-      //     if (lastMessage && typeof lastMessage.content === "string") {
-      //       agentResponse = lastMessage.content;
-      //     }
-      //   }
-
-      //   logInfo("LangGraph agent processed conversation", {
-      //     requestId,
-      //     userIntent: agentResult.user_intent,
-      //     conversationEnded: agentResult.conversation_ended,
-      //     currentOffer: agentResult.current_offer,
-      //     finalAgreement: agentResult.final_agreement,
-      //   });
-      // } catch (error) {
-      //   logWarn("Agent processing failed, using fallback response", {
-      //     requestId,
-      //     error: error instanceof Error ? error.message : "Unknown error",
-      //     errorStack: error instanceof Error ? error.stack : undefined,
-      //   });
-      //   // For debugging: show what went wrong
-      //   agentResponse = `[DEBUG] Agent failed: ${error instanceof Error ? error.message : "Unknown error"}. Using fallback response: ${agentResponse}`;
-      // }
+        logInfo("LangGraph agent processed conversation", {
+          requestId,
+          userIntent: result.user_intent,
+          conversationEnded: result.conversation_ended,
+          currentOffer: result.current_offer,
+          finalAgreement: result.final_agreement,
+        });
+      } catch (error) {
+        logWarn("Agent processing failed, using fallback response", {
+          requestId,
+          error: error instanceof Error ? error.message : "Unknown error",
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
+        // For debugging: show what went wrong
+        agentResponse = `I understand you're trying to communicate with me. Let me help you resolve your $2400 debt. Can you tell me about your current situation?`;
+      }
     }
 
     const stream = createAgentStream(agentResponse);

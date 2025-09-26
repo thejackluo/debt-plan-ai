@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config(); // Load environment variables from .env file
+
 import app from "./app.js";
 
 const port = Number.parseInt(process.env.PORT ?? "4000", 10);
