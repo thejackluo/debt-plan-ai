@@ -13,7 +13,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.35",
     "@boundaryml/baml": "^0.208.5",
-    "@langchain/langgraph": "^0.0.33",
+    "@langchain/langgraph": "^0.4.9",
     "ai": "^5.0.53",
     "cors": "2.8.5",
     "express": "5.1.0",
