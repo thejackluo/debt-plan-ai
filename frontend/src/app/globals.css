@@ -7,9 +7,13 @@
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply min-h-screen bg-slate-950 text-slate-100 antialiased;
+  background-image:
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.35), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(76, 29, 149, 0.3), transparent 60%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.92), rgba(15, 23, 42, 0.98));
 }
 
 main {
-  @apply flex min-h-screen items-center justify-center bg-slate-900/80;
+  @apply flex min-h-screen items-center justify-center px-4 py-12 backdrop-blur-sm;
 }
