@@ -34,3 +34,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# BMAD (local only)
+.bmad-core/
+.bmad-*/
+
+# IDE and development tools
+.claude/
+.cursor/
+web-bundles/
