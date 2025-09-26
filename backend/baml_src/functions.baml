@@ -508,7 +508,7 @@ function GenerateNegotiationResponse(
   DEBT DETAILS:
   - Total debt amount: $2400
   - Available payment plans: $400/6mo, $200/12mo
-  - Payment URL format: collectwise.com/payments?termLength={months}&totalDebtAmount=2400&termPaymentAmount={monthly}
+  - DO NOT generate payment URLs in your response - the system will handle URL generation
 
   PERSONALITY & TONE:
   - Professional but empathetic

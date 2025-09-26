@@ -268,9 +268,7 @@ export default function ChatController() {
     }
 
     const previousTranscript = transcript;
-    const resetTranscript: ChatTranscript = [];
 
-    setTranscript(resetTranscript);
     setIsPersisting(true);
 
     try {
@@ -282,6 +280,13 @@ export default function ChatController() {
         throw new Error(`Unexpected status ${response.status}`);
       }
 
+      // After successful reset, start fresh with the initial greeting message
+      const initialMessage: ChatMessage = {
+        role: "assistant",
+        content:
+          "Hello! Our records show that you currently owe $2400. Are you able to resolve this debt today?",
+      };
+      setTranscript([initialMessage]);
       setErrorMessage(null);
     } catch (error) {
       setErrorMessage(

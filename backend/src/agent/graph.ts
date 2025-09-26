@@ -290,10 +290,16 @@ export class NegotiationGraph {
         state.negotiation_attempts || 0
       );
 
+      // Add payment URLs to the response using environment-aware generation
+      const fullPaymentUrl = this.generatePaymentUrl(2400, "full");
+      const planPaymentUrl = this.generatePaymentUrl(2400, "$400/month for 6 months");
+
+      const enhancedResponse = `${response}\n\nYou can pay the full $2400 immediately here: ${fullPaymentUrl}\n\nOr choose the payment plan here: ${planPaymentUrl}`;
+
       return {
         ...state,
         current_offer: "$400/month for 6 months",
-        messages: [...state.messages, new AIMessage(response)],
+        messages: [...state.messages, new AIMessage(enhancedResponse)],
       };
     } catch (error) {
       console.error("Error generating payer response:", error);
@@ -723,16 +729,38 @@ export class NegotiationGraph {
 
   /**
    * Generates a payment URL according to PRD specifications.
-   * Format: collectwise.com/payments?termLength={termLength}&totalDebtAmount={totalDebtAmount}&termPaymentAmount={termPaymentAmount}
+   * Uses environment-aware base URL for deployment flexibility.
+   * Format: {baseUrl}/payments?termLength={termLength}&totalDebtAmount={totalDebtAmount}&termPaymentAmount={termPaymentAmount}
    *
    * @param totalDebt - The total debt amount (e.g., 2400)
    * @param paymentPlan - The payment plan string (e.g., "$400/month for 6 months")
-   * @returns Formatted payment URL
+   * @returns Formatted payment URL with correct base URL for environment
    */
   private generatePaymentUrl(totalDebt: number, paymentPlan?: string): string {
+    // Determine base URL based on environment
+    const getBaseUrl = (): string => {
+      // Check if we're in production (Vercel deployment)
+      if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+        return "https://collectwise-backend.vercel.app";
+      }
+      // Development environment
+      if (process.env.PORT) {
+        return `http://localhost:${process.env.PORT}`;
+      }
+      // Default fallback
+      return "http://localhost:4000";
+    };
+
+    const baseUrl = `${getBaseUrl()}/payments`;
+
     // Handle full payment case
     if (!paymentPlan || paymentPlan === "full") {
-      return `collectwise.com/payments?termLength=1&totalDebtAmount=${totalDebt}&termPaymentAmount=${totalDebt}`;
+      const params = new URLSearchParams({
+        termLength: "1",
+        totalDebtAmount: totalDebt.toString(),
+        termPaymentAmount: totalDebt.toString(),
+      });
+      return `${baseUrl}?${params.toString()}`;
     }
 
     // Parse payment plan string to extract payment amount and term length
@@ -743,7 +771,6 @@ export class NegotiationGraph {
 
     if (planMatch) {
       const [, paymentAmount, termLength] = planMatch;
-      const baseUrl = "collectwise.com/payments";
       const params = new URLSearchParams({
         termLength: termLength,
         totalDebtAmount: totalDebt.toString(),
@@ -759,7 +786,6 @@ export class NegotiationGraph {
     if (amountMatch && termMatch) {
       const paymentAmount = amountMatch[1];
       const termLength = termMatch[1];
-      const baseUrl = "collectwise.com/payments";
       const params = new URLSearchParams({
         termLength: termLength,
         totalDebtAmount: totalDebt.toString(),
@@ -769,7 +795,12 @@ export class NegotiationGraph {
     }
 
     // Final fallback - assume monthly payment equal to total debt
-    return `collectwise.com/payments?termLength=1&totalDebtAmount=${totalDebt}&termPaymentAmount=${totalDebt}`;
+    const params = new URLSearchParams({
+      termLength: "1",
+      totalDebtAmount: totalDebt.toString(),
+      termPaymentAmount: totalDebt.toString(),
+    });
+    return `${baseUrl}?${params.toString()}`;
   }
 }
 
