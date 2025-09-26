@@ -7,5 +7,5 @@
     "rootDir": "."
   },
   "include": ["src/**/*.ts", "baml_client/**/*.ts"],
-  "exclude": ["src/tests/**/*", "tests/**/*"]
+  "exclude": ["src/tests/**/*", "tests/**/*", "src/agent/**/*"]
 }
