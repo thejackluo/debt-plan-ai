@@ -182,18 +182,17 @@ export class NegotiationGraph {
       "User is ready to pay - offering payment options"
     );
 
-    // Add payment URLs
-    const fullPaymentUrl = this.generatePaymentUrl(2400, "full");
-    const planPaymentUrl = this.generatePaymentUrl(
-      2400,
-      "$400/month for 6 months"
-    );
+    const optionsNote =
+      "Here are two payment options we can lock in right now:\n" +
+      "• $400 per month for 6 months\n" +
+      "• $200 per month for 12 months\n\n" +
+      "Let me know which plan works best (or tell me a different amount), and I'll send over the secure CollectWise payment link.";
 
-    const enhancedResponse = `${response}\n\nYou can pay the full $2400 immediately here: ${fullPaymentUrl}\n\nOr choose the payment plan here: ${planPaymentUrl}`;
+    const enhancedResponse = `${response}\n\n${optionsNote}`;
 
     return {
       ...state,
-      current_offer: "$400/month for 6 months",
+      current_offer: "$400/month for 6 months OR $200/month for 12 months",
       messages: [...state.messages, new AIMessage(enhancedResponse)],
     };
   }
@@ -573,10 +572,7 @@ export class NegotiationGraph {
   }
 
   private getBaseUrl(): string {
-    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-      return "https://collectwise-backend.vercel.app";
-    }
-    return `http://localhost:${process.env.PORT || 4000}`;
+    return process.env.PAYMENT_URL_BASE ?? "https://collectwise.com";
   }
 }
 

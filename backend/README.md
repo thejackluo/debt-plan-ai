@@ -375,6 +375,9 @@ OPENAI_MAX_TOKENS=1000
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=900000  # 15 minutes
 RATE_LIMIT_MAX_REQUESTS=100
+
+# Payment Links
+PAYMENT_URL_BASE=https://collectwise.com
 ```
 
 ## 🔍 Troubleshooting
