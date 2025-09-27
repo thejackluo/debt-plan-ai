@@ -2,19 +2,41 @@
 // Based on Stories 1.4 and 1.5 from PRD
 // Simplified architecture with proper TypeScript support
 
-import { AIMessage } from "@langchain/core/messages";
-import type { BaseMessage } from "@langchain/core/messages";
+import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 
-import type { BamlAsyncClient } from "../../baml_client/async_client.js";
+/* eslint-disable import/no-unresolved */
 import { b } from "../../baml_client/index.js";
 import {
   EmotionalState,
+  type EscalationLevel,
   NegotiationResponse,
   PaymentPlanValidity,
   SecurityThreatLevel,
   UserIntent,
 } from "../../baml_client/types.js";
-import type { EscalationLevel } from "../../baml_client/types.js";
+/* eslint-enable import/no-unresolved */
+
+const TOTAL_DEBT_AMOUNT = 2400;
+const OFFER_DETAILS_REGEX =
+  /\$(\d[\d,]*)\/month(?:\s*(?:for|over)\s*)?(\d+)\s*months?/i;
+const ACCEPT_PROPOSAL_REGEX =
+  /accept (?:your|this) (?:proposal|plan)[:\s]*([^.!?\n]+)/i;
+const AGREEMENT_CONFIRMATION_REGEX = /you(?:'| ha)ve agreed to\s+([^.!?\n]+)/i;
+const PAYMENT_LINK_REGEX = /payment link/i;
+const SPLIT_PAYMENT_KEY_PHRASE =
+  "i'll set up a plan where you pay $200/month for 12 months";
+const AWAITING_PROMPT_PATTERNS = [
+  "what monthly payment",
+  "what monthly amount",
+  "could you comfortably make",
+  "what monthly payment amount would feel",
+  "help me understand where you need payments",
+  "what monthly payment could you",
+  "what monthly payment amount feels realistic",
+  "let me know which plan works best",
+  "should we look at a small adjustment",
+  "does that feel doable",
+];
 
 // Agent State Interface - Core state management
 export interface AgentState {
@@ -23,16 +45,20 @@ export interface AgentState {
   emotional_state?: EmotionalState;
   security_threat_level?: SecurityThreatLevel;
   escalation_level?: EscalationLevel;
-  negotiation_attempts: number;
+  negotiation_attempts?: number;
   current_offer?: string;
   final_agreement?: string;
-  conversation_ended: boolean;
+  conversation_ended?: boolean;
+  awaiting_user_proposal?: boolean;
 }
 
 // Main Negotiation Graph Class
 export class NegotiationGraph {
   // Main entry point - Story 1.4 AC4: Entry point for graph
   async invoke(state: AgentState): Promise<AgentState> {
+    state = this.ensureStateDefaults(state);
+    state = this.rehydrateStateFromHistory(state);
+
     console.log(
       `Processing negotiation state with ${state.messages.length} messages`
     );
@@ -62,34 +88,114 @@ export class NegotiationGraph {
     return state;
   }
 
+  private ensureStateDefaults(state: AgentState): AgentState {
+    return {
+      ...state,
+      negotiation_attempts: state.negotiation_attempts ?? 0,
+      conversation_ended: state.conversation_ended ?? false,
+    };
+  }
+
+  private rehydrateStateFromHistory(state: AgentState): AgentState {
+    if (state.messages.length === 0) {
+      return state;
+    }
+
+    const detectedOffers: string[] = [];
+
+    let inferredOffer = state.current_offer;
+    let inferredAgreement = state.final_agreement;
+    let awaitingProposal = state.awaiting_user_proposal ?? false;
+    let conversationEnded = state.conversation_ended;
+
+    for (const message of state.messages) {
+      if (message._getType() !== "ai") {
+        continue;
+      }
+
+      const content = this.extractMessageContent(message);
+      const lowerContent = content.toLowerCase();
+
+      const offer = this.extractOfferDetails(content);
+      if (offer) {
+        detectedOffers.push(offer);
+        inferredOffer = offer;
+        awaitingProposal = false;
+      } else if (!inferredOffer && lowerContent.includes(SPLIT_PAYMENT_KEY_PHRASE)) {
+        const splitPlan = "$200/month for 12 months";
+        detectedOffers.push(splitPlan);
+        inferredOffer = splitPlan;
+        awaitingProposal = false;
+      }
+
+      const acceptedPlan = this.extractAcceptedPlan(content);
+      if (acceptedPlan) {
+        inferredAgreement = acceptedPlan;
+        inferredOffer = inferredOffer ?? acceptedPlan;
+        conversationEnded = true;
+        awaitingProposal = false;
+      }
+
+      if (this.isAwaitingProposalPrompt(lowerContent)) {
+        awaitingProposal = true;
+      }
+
+      if (!conversationEnded && this.isConversationClosed(content, lowerContent)) {
+        conversationEnded = true;
+      }
+    }
+
+    const negotiationAttempts = Math.max(
+      state.negotiation_attempts ?? 0,
+      detectedOffers.length
+    );
+
+    if (detectedOffers.length > 0) {
+      inferredOffer = detectedOffers[detectedOffers.length - 1];
+    }
+
+    if (conversationEnded) {
+      awaitingProposal = false;
+    }
+
+    return {
+      ...state,
+      negotiation_attempts: negotiationAttempts,
+      current_offer: inferredOffer,
+      final_agreement: inferredAgreement,
+      awaiting_user_proposal: awaitingProposal,
+      conversation_ended: conversationEnded,
+    };
+  }
+
   // Story 1.4 AC3: BAML function for check_user_intent
   private async checkUserIntent(state: AgentState): Promise<AgentState> {
     const lastMessage = this.getLastMessage(state);
     const messageContent = this.extractMessageContent(lastMessage);
     const conversationContext = this.buildConversationContext(state);
-    const bamlClient = b as BamlAsyncClient;
+    const bamlClient = b;
 
     try {
       // Use BAML functions for intent analysis with proper type checking
 
-      const intent = (await bamlClient.AnalyzeUserIntent(
+      const intent = await bamlClient.AnalyzeUserIntent(
         messageContent,
         conversationContext,
         [],
         state.negotiation_attempts || 0
-      )) as UserIntent;
+      );
 
-      const emotionalState = (await bamlClient.AssessEmotionalState(
+      const emotionalState = await bamlClient.AssessEmotionalState(
         messageContent,
         conversationContext,
         "Previous: calm"
-      )) as EmotionalState;
+      );
 
-      const securityThreat = (await bamlClient.DetectSecurityThreats(
+      const securityThreat = await bamlClient.DetectSecurityThreats(
         messageContent,
         conversationContext,
         "Debt collection system"
-      )) as SecurityThreatLevel;
+      );
 
       return {
         ...state,
@@ -108,13 +214,13 @@ export class NegotiationGraph {
     state: AgentState
   ): Promise<AgentState> {
     const userMessage = this.extractMessageContent(state.messages[0]);
-    const bamlClient = b as BamlAsyncClient;
+    const bamlClient = b;
 
     try {
       const openingMessage = await bamlClient.GenerateContextualOpening(
         userMessage,
-        state.user_intent?.toString() || "Unknown",
-        state.emotional_state?.toString() || "Calm"
+        state.user_intent ?? "Unknown",
+        state.emotional_state ?? EmotionalState.Calm
       );
 
       return {
@@ -128,7 +234,7 @@ export class NegotiationGraph {
         messages: [
           ...state.messages,
           new AIMessage(
-            "I understand you're reaching out about your account. Let me help you find the best way to resolve your $2400 debt."
+            `I understand you're reaching out about your account. Let me help you find the best way to resolve your $${TOTAL_DEBT_AMOUNT} debt.`
           ),
         ],
       };
@@ -178,7 +284,7 @@ export class NegotiationGraph {
   private async handlePayer(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.WillingPayer.toString(),
+      UserIntent.WillingPayer,
       "User is ready to pay - offering payment options"
     );
 
@@ -193,6 +299,7 @@ export class NegotiationGraph {
     return {
       ...state,
       current_offer: "$400/month for 6 months OR $200/month for 12 months",
+      awaiting_user_proposal: true,
       messages: [...state.messages, new AIMessage(enhancedResponse)],
     };
   }
@@ -215,7 +322,7 @@ export class NegotiationGraph {
 
     const response = await this.generateNegotiationResponse(
       state,
-      state.user_intent?.toString() || "CooperativeNegotiator",
+      state.user_intent ?? UserIntent.CooperativeNegotiator,
       context
     );
 
@@ -223,6 +330,7 @@ export class NegotiationGraph {
       ...state,
       current_offer: offer,
       negotiation_attempts: attempts + 1,
+      awaiting_user_proposal: true,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -231,13 +339,14 @@ export class NegotiationGraph {
   private async handleNoDebtClaim(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.NoDebtClaimant.toString(),
+      UserIntent.NoDebtClaimant,
       "User denies owing the debt - verification process"
     );
 
     return {
       ...state,
       conversation_ended: true,
+      awaiting_user_proposal: false,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -246,13 +355,14 @@ export class NegotiationGraph {
   private async handleStonewaller(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.Stonewaller.toString(),
+      UserIntent.Stonewaller,
       "User is uncooperative - final attempt before escalation"
     );
 
     return {
       ...state,
       conversation_ended: true,
+      awaiting_user_proposal: false,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -261,13 +371,14 @@ export class NegotiationGraph {
   private async handleEmotionalUser(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.EmotionalDistressed.toString(),
+      UserIntent.EmotionalDistressed,
       "User is emotionally distressed - offering most flexible terms"
     );
 
     return {
       ...state,
       current_offer: "$200/month for 12 months",
+      awaiting_user_proposal: true,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -276,12 +387,13 @@ export class NegotiationGraph {
   private async handleSecurityThreat(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.PromptInjector.toString(),
+      UserIntent.PromptInjector,
       "User attempting system manipulation - redirecting to debt focus"
     );
 
     return {
       ...state,
+      awaiting_user_proposal: false,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -290,13 +402,14 @@ export class NegotiationGraph {
   private async handleBargainHunter(state: AgentState): Promise<AgentState> {
     const response = await this.generateNegotiationResponse(
       state,
-      UserIntent.BargainHunter.toString(),
+      UserIntent.BargainHunter,
       "User seeking to negotiate total debt amount - clarifying payment plan flexibility"
     );
 
     return {
       ...state,
       current_offer: "$400/month for 6 months OR $200/month for 12 months",
+      awaiting_user_proposal: true,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -309,6 +422,7 @@ export class NegotiationGraph {
     return {
       ...state,
       current_offer: "$200/month for 12 months (with upfront credit)",
+      awaiting_user_proposal: false,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -321,6 +435,7 @@ export class NegotiationGraph {
     return {
       ...state,
       current_offer: "$200/month for 12 months (early payoff allowed)",
+      awaiting_user_proposal: true,
       messages: [...state.messages, new AIMessage(response)],
     };
   }
@@ -331,16 +446,16 @@ export class NegotiationGraph {
     const messageContent = this.extractMessageContent(lastMessage);
     const currentOffer = state.current_offer || "No current offer";
     const negotiationHistory = this.buildNegotiationHistory(state);
-    const bamlClient = b as BamlAsyncClient;
+    const bamlClient = b;
 
     try {
-      const response = (await bamlClient.AnalyzeNegotiationResponse(
+      const response = await bamlClient.AnalyzeNegotiationResponse(
         messageContent,
         currentOffer,
         negotiationHistory,
-        state.emotional_state?.toString() || "Calm",
-        state.security_threat_level?.toString() || "Safe"
-      )) as NegotiationResponse;
+        state.emotional_state ?? EmotionalState.Calm,
+        state.security_threat_level ?? SecurityThreatLevel.Safe
+      );
 
       switch (response) {
         case NegotiationResponse.Accepted:
@@ -361,12 +476,16 @@ export class NegotiationGraph {
 
   // Story 1.5: Handle accepted offers
   private handleAcceptedOffer(state: AgentState): AgentState {
-    const paymentUrl = this.generatePaymentUrl(2400, state.current_offer);
+    const paymentUrl = this.generatePaymentUrl(
+      TOTAL_DEBT_AMOUNT,
+      state.current_offer
+    );
 
     return {
       ...state,
       final_agreement: state.current_offer,
       conversation_ended: true,
+      awaiting_user_proposal: false,
       messages: [
         ...state.messages,
         new AIMessage(
@@ -381,16 +500,16 @@ export class NegotiationGraph {
     state: AgentState,
     counterOffer: string
   ): Promise<AgentState> {
-    const bamlClient = b as BamlAsyncClient;
+    const bamlClient = b;
 
     try {
-      const validity = (await bamlClient.ValidatePaymentPlan(
+      const validity = await bamlClient.ValidatePaymentPlan(
         counterOffer,
-        2400,
+        TOTAL_DEBT_AMOUNT,
         "User counter-offer",
-        state.emotional_state?.toString() || "Calm",
+        state.emotional_state ?? EmotionalState.Calm,
         this.buildConversationContext(state)
-      )) as PaymentPlanValidity;
+      );
 
       switch (validity) {
         case PaymentPlanValidity.Reasonable:
@@ -469,6 +588,56 @@ export class NegotiationGraph {
       .join("\n");
   }
 
+  private extractOfferDetails(content: string): string | undefined {
+    const match = content.match(OFFER_DETAILS_REGEX);
+    if (!match) {
+      return undefined;
+    }
+
+    return match[0].replace(/\s+/g, " ").trim();
+  }
+
+  private extractAcceptedPlan(content: string): string | undefined {
+    const acceptance = content.match(ACCEPT_PROPOSAL_REGEX);
+    if (acceptance) {
+      return acceptance[1].trim();
+    }
+
+    const confirmation = content.match(AGREEMENT_CONFIRMATION_REGEX);
+    if (confirmation) {
+      return confirmation[1].trim();
+    }
+
+    return undefined;
+  }
+
+  private isAwaitingProposalPrompt(lowerContent: string): boolean {
+    return AWAITING_PROMPT_PATTERNS.some((phrase) =>
+      lowerContent.includes(phrase)
+    );
+  }
+
+  private isConversationClosed(
+    content: string,
+    lowerContent: string
+  ): boolean {
+    if (PAYMENT_LINK_REGEX.test(content)) {
+      return true;
+    }
+
+    const closingPhrases = [
+      "i'll escalate this",
+      "transferring you to a supervisor",
+      "we'll close this conversation",
+      "conversation is complete",
+      "i'll note this for escalation",
+      "we'll pause here until you are ready",
+      "thank you for resolving this matter",
+    ];
+
+    return closingPhrases.some((phrase) => lowerContent.includes(phrase));
+  }
+
   private async generateNegotiationResponse(
     state: AgentState,
     intent: string,
@@ -477,14 +646,14 @@ export class NegotiationGraph {
     const lastMessage = this.getLastMessage(state);
     const userMessage = this.extractMessageContent(lastMessage);
     const conversationHistory = this.buildConversationContext(state);
-    const bamlClient = b as BamlAsyncClient;
+    const bamlClient = b;
 
     try {
       const response = await bamlClient.GenerateNegotiationResponse(
         userMessage,
         conversationHistory,
         intent,
-        state.emotional_state?.toString() || "Calm",
+        state.emotional_state ?? EmotionalState.Calm,
         context,
         state.current_offer || "No current offer",
         state.negotiation_attempts || 0
@@ -493,7 +662,7 @@ export class NegotiationGraph {
       return response;
     } catch (error) {
       console.error("Failed to generate negotiation response:", error);
-      return "I understand your situation. Let me help you find the best payment solution for your $2400 debt.";
+      return `I understand your situation. Let me help you find the best payment solution for your $${TOTAL_DEBT_AMOUNT} debt.`;
     }
   }
 
@@ -544,12 +713,13 @@ export class NegotiationGraph {
     state: AgentState,
     counterOffer: string
   ): AgentState {
-    const paymentUrl = this.generatePaymentUrl(2400, counterOffer);
+    const paymentUrl = this.generatePaymentUrl(TOTAL_DEBT_AMOUNT, counterOffer);
 
     return {
       ...state,
       final_agreement: counterOffer,
       conversation_ended: true,
+      awaiting_user_proposal: false,
       messages: [
         ...state.messages,
         new AIMessage(
@@ -562,6 +732,7 @@ export class NegotiationGraph {
   private negotiateCounterOffer(state: AgentState): AgentState {
     return {
       ...state,
+      awaiting_user_proposal: true,
       messages: [
         ...state.messages,
         new AIMessage(
