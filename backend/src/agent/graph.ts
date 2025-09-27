@@ -31,10 +31,11 @@ export interface AgentState {
 
 // Main Negotiation Graph Class
 export class NegotiationGraph {
-
   // Main entry point - Story 1.4 AC4: Entry point for graph
   async invoke(state: AgentState): Promise<AgentState> {
-    console.log(`Processing negotiation state with ${state.messages.length} messages`);
+    console.log(
+      `Processing negotiation state with ${state.messages.length} messages`
+    );
 
     // Handle first user message - generate contextual opening
     if (this.isFirstUserMessage(state)) {
@@ -96,7 +97,6 @@ export class NegotiationGraph {
         emotional_state: emotionalState,
         security_threat_level: securityThreat,
       };
-
     } catch (error) {
       console.error("BAML intent analysis failed:", error);
       return this.handleIntentFallback(state, messageContent);
@@ -104,7 +104,9 @@ export class NegotiationGraph {
   }
 
   // Story 1.5: Generate contextual opening using BAML
-  private async generateContextualOpening(state: AgentState): Promise<AgentState> {
+  private async generateContextualOpening(
+    state: AgentState
+  ): Promise<AgentState> {
     const userMessage = this.extractMessageContent(state.messages[0]);
     const bamlClient = b as BamlAsyncClient;
 
@@ -119,14 +121,16 @@ export class NegotiationGraph {
         ...state,
         messages: [...state.messages, new AIMessage(openingMessage)],
       };
-
     } catch (error) {
       console.error("Failed to generate contextual opening:", error);
       return {
         ...state,
-        messages: [...state.messages, new AIMessage(
-          "I understand you're reaching out about your account. Let me help you find the best way to resolve your $2400 debt."
-        )],
+        messages: [
+          ...state.messages,
+          new AIMessage(
+            "I understand you're reaching out about your account. Let me help you find the best way to resolve your $2400 debt."
+          ),
+        ],
       };
     }
   }
@@ -137,8 +141,10 @@ export class NegotiationGraph {
     const securityThreat = state.security_threat_level;
 
     // Security override
-    if (securityThreat === SecurityThreatLevel.ActiveThreat ||
-        securityThreat === SecurityThreatLevel.AttemptedManipulation) {
+    if (
+      securityThreat === SecurityThreatLevel.ActiveThreat ||
+      securityThreat === SecurityThreatLevel.AttemptedManipulation
+    ) {
       return this.handleSecurityThreat(state);
     }
 
@@ -178,7 +184,10 @@ export class NegotiationGraph {
 
     // Add payment URLs
     const fullPaymentUrl = this.generatePaymentUrl(2400, "full");
-    const planPaymentUrl = this.generatePaymentUrl(2400, "$400/month for 6 months");
+    const planPaymentUrl = this.generatePaymentUrl(
+      2400,
+      "$400/month for 6 months"
+    );
 
     const enhancedResponse = `${response}\n\nYou can pay the full $2400 immediately here: ${fullPaymentUrl}\n\nOr choose the payment plan here: ${planPaymentUrl}`;
 
@@ -198,10 +207,18 @@ export class NegotiationGraph {
       return await this.handleStonewaller(state);
     }
 
-    const offer = attempts === 0 ? "$400/month for 6 months" : "$200/month for 12 months";
-    const context = attempts === 0 ? "First negotiation offer" : "Second negotiation offer - more affordable";
+    const offer =
+      attempts === 0 ? "$400/month for 6 months" : "$200/month for 12 months";
+    const context =
+      attempts === 0
+        ? "First negotiation offer"
+        : "Second negotiation offer - more affordable";
 
-    const response = await this.generateNegotiationResponse(state, state.user_intent?.toString() || "CooperativeNegotiator", context);
+    const response = await this.generateNegotiationResponse(
+      state,
+      state.user_intent?.toString() || "CooperativeNegotiator",
+      context
+    );
 
     return {
       ...state,
@@ -287,7 +304,8 @@ export class NegotiationGraph {
 
   // Story 1.5: Handle split payment proposals
   private handleSplitPayment(state: AgentState): AgentState {
-    const response = "Thank you for offering to make a payment today - that shows great faith! Here's how we can structure this: I'll set up a plan where you pay $200/month for 12 months, and your payment today will be credited as your first payment.";
+    const response =
+      "Thank you for offering to make a payment today - that shows great faith! Here's how we can structure this: I'll set up a plan where you pay $200/month for 12 months, and your payment today will be credited as your first payment.";
 
     return {
       ...state,
@@ -298,7 +316,8 @@ export class NegotiationGraph {
 
   // Story 1.5: Handle good faith promises
   private handleGoodFaithPromise(state: AgentState): AgentState {
-    const response = "I appreciate your commitment to resolving this! Since timing can be unpredictable with new jobs, let's set up a structured plan that gives you flexibility. I can offer $200/month for 12 months with early payoff allowed.";
+    const response =
+      "I appreciate your commitment to resolving this! Since timing can be unpredictable with new jobs, let's set up a structured plan that gives you flexibility. I can offer $200/month for 12 months with early payoff allowed.";
 
     return {
       ...state,
@@ -335,7 +354,6 @@ export class NegotiationGraph {
         default:
           return await this.handleNegotiator(state);
       }
-
     } catch (error) {
       console.error("Failed to analyze negotiation response:", error);
       return await this.handleResponseFallback(state, messageContent);
@@ -350,14 +368,20 @@ export class NegotiationGraph {
       ...state,
       final_agreement: state.current_offer,
       conversation_ended: true,
-      messages: [...state.messages, new AIMessage(
-        `Excellent! You've agreed to ${state.current_offer}. Here's your payment link: ${paymentUrl}\n\nThank you for resolving this matter.`
-      )],
+      messages: [
+        ...state.messages,
+        new AIMessage(
+          `Excellent! You've agreed to ${state.current_offer}. Here's your payment link: ${paymentUrl}\n\nThank you for resolving this matter.`
+        ),
+      ],
     };
   }
 
   // Story 1.5: Validate counter offers
-  private async validateCounterOffer(state: AgentState, counterOffer: string): Promise<AgentState> {
+  private async validateCounterOffer(
+    state: AgentState,
+    counterOffer: string
+  ): Promise<AgentState> {
     const bamlClient = b as BamlAsyncClient;
 
     try {
@@ -377,7 +401,6 @@ export class NegotiationGraph {
         default:
           return await this.handleNegotiator(state);
       }
-
     } catch (error) {
       console.error("Failed to validate counter offer:", error);
       return await this.handleNegotiator(state);
@@ -393,7 +416,9 @@ export class NegotiationGraph {
     }
 
     // Parse payment plan string
-    const planMatch = paymentPlan.match(/\$?(\d+)(?:\/month|\s*per\s*month)(?:\s*for\s*)?(\d+)\s*months?/i);
+    const planMatch = paymentPlan.match(
+      /\$?(\d+)(?:\/month|\s*per\s*month)(?:\s*for\s*)?(\d+)\s*months?/i
+    );
 
     if (planMatch) {
       const [, paymentAmount, termLength] = planMatch;
@@ -406,12 +431,18 @@ export class NegotiationGraph {
 
   // Helper Methods
   private isFirstUserMessage(state: AgentState): boolean {
-    return state.messages.length === 1 && state.messages[0]._getType() === "human";
+    return (
+      state.messages.length === 1 && state.messages[0]._getType() === "human"
+    );
   }
 
   private hasActiveOffer(state: AgentState): boolean {
-    return !!(state.current_offer && !state.final_agreement && !state.conversation_ended &&
-            state.messages[state.messages.length - 1]?._getType() === "human");
+    return !!(
+      state.current_offer &&
+      !state.final_agreement &&
+      !state.conversation_ended &&
+      state.messages[state.messages.length - 1]?._getType() === "human"
+    );
   }
 
   private getLastMessage(state: AgentState): BaseMessage | undefined {
@@ -420,24 +451,30 @@ export class NegotiationGraph {
 
   private extractMessageContent(message: BaseMessage | undefined): string {
     if (!message) return "";
-    return typeof message.content === "string" ? message.content : JSON.stringify(message.content);
+    return typeof message.content === "string"
+      ? message.content
+      : JSON.stringify(message.content);
   }
 
   private buildConversationContext(state: AgentState): string {
     return state.messages
       .slice(-3)
-      .map(msg => `${msg._getType()}: ${this.extractMessageContent(msg)}`)
+      .map((msg) => `${msg._getType()}: ${this.extractMessageContent(msg)}`)
       .join("\n");
   }
 
   private buildNegotiationHistory(state: AgentState): string {
     return state.messages
       .slice(-5)
-      .map(msg => `${msg._getType()}: ${this.extractMessageContent(msg)}`)
+      .map((msg) => `${msg._getType()}: ${this.extractMessageContent(msg)}`)
       .join("\n");
   }
 
-  private async generateNegotiationResponse(state: AgentState, intent: string, context: string): Promise<string> {
+  private async generateNegotiationResponse(
+    state: AgentState,
+    intent: string,
+    context: string
+  ): Promise<string> {
     const lastMessage = this.getLastMessage(state);
     const userMessage = this.extractMessageContent(lastMessage);
     const conversationHistory = this.buildConversationContext(state);
@@ -455,20 +492,25 @@ export class NegotiationGraph {
       );
 
       return response;
-
     } catch (error) {
       console.error("Failed to generate negotiation response:", error);
       return "I understand your situation. Let me help you find the best payment solution for your $2400 debt.";
     }
   }
 
-  private handleIntentFallback(state: AgentState, messageContent: string): AgentState {
+  private handleIntentFallback(
+    state: AgentState,
+    messageContent: string
+  ): AgentState {
     const lowerContent = messageContent.toLowerCase();
     let fallbackIntent = UserIntent.CooperativeNegotiator;
 
     if (lowerContent.includes("can pay") && lowerContent.includes("month")) {
       fallbackIntent = UserIntent.WillingPayer;
-    } else if (lowerContent.includes("don't owe") || lowerContent.includes("not my debt")) {
+    } else if (
+      lowerContent.includes("don't owe") ||
+      lowerContent.includes("not my debt")
+    ) {
       fallbackIntent = UserIntent.NoDebtClaimant;
     } else if (lowerContent.includes("fuck") || lowerContent.includes("scam")) {
       fallbackIntent = UserIntent.Stonewaller;
@@ -482,35 +524,51 @@ export class NegotiationGraph {
     };
   }
 
-  private async handleResponseFallback(state: AgentState, messageContent: string): Promise<AgentState> {
+  private async handleResponseFallback(
+    state: AgentState,
+    messageContent: string
+  ): Promise<AgentState> {
     const lowerContent = messageContent.toLowerCase();
 
-    if (lowerContent.includes("yes") || lowerContent.includes("accept") || lowerContent.includes("agree")) {
+    if (
+      lowerContent.includes("yes") ||
+      lowerContent.includes("accept") ||
+      lowerContent.includes("agree")
+    ) {
       return this.handleAcceptedOffer(state);
     } else {
       return await this.handleNegotiator(state);
     }
   }
 
-  private acceptCounterOffer(state: AgentState, counterOffer: string): AgentState {
+  private acceptCounterOffer(
+    state: AgentState,
+    counterOffer: string
+  ): AgentState {
     const paymentUrl = this.generatePaymentUrl(2400, counterOffer);
 
     return {
       ...state,
       final_agreement: counterOffer,
       conversation_ended: true,
-      messages: [...state.messages, new AIMessage(
-        `That sounds reasonable! I can accept your proposal: ${counterOffer}. Here's your payment link: ${paymentUrl}`
-      )],
+      messages: [
+        ...state.messages,
+        new AIMessage(
+          `That sounds reasonable! I can accept your proposal: ${counterOffer}. Here's your payment link: ${paymentUrl}`
+        ),
+      ],
     };
   }
 
   private negotiateCounterOffer(state: AgentState): AgentState {
     return {
       ...state,
-      messages: [...state.messages, new AIMessage(
-        `Your proposal is close, but let me suggest a slight adjustment. How about we meet in the middle with my current offer of ${state.current_offer}?`
-      )],
+      messages: [
+        ...state.messages,
+        new AIMessage(
+          `Your proposal is close, but let me suggest a slight adjustment. How about we meet in the middle with my current offer of ${state.current_offer}?`
+        ),
+      ],
     };
   }
 

@@ -20,10 +20,10 @@ $ pnpm add @boundaryml/baml
 
 import type { BamlRuntime, BamlCtxManager, ClientRegistry, Image, Audio, Pdf, Video, FunctionLog } from "@boundaryml/baml"
 import { toBamlError, HTTPRequest } from "@boundaryml/baml"
-import type { Checked, Check } from "./types"
-import type * as types from "./types"
-import type {EmotionalState, EscalationLevel, NegotiationResponse, PaymentPlanValidity, SecurityThreatLevel, UserIntent} from "./types"
-import type TypeBuilder from "./type_builder"
+import type { Checked, Check } from "./types.js"
+import type * as types from "./types.js"
+import type {EmotionalState, EscalationLevel, NegotiationResponse, PaymentPlanValidity, SecurityThreatLevel, UserIntent} from "./types.js"
+import type TypeBuilder from "./type_builder.js"
 
 type TickReason = "Unknown";
 
