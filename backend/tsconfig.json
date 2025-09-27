@@ -5,6 +5,6 @@
     "types": ["node", "jest"],
     "isolatedModules": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts", "tests/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts", "tests/**/*.ts", "baml_client/**/*.ts"],
   "exclude": ["dist"]
 }

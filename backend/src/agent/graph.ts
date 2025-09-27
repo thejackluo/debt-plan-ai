@@ -5,16 +5,16 @@
 import { AIMessage } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
 
-import { b } from "../baml_client/index.js";
-import type { BamlAsyncClient } from "../baml_client/async_client.js";
+import type { BamlAsyncClient } from "../../baml_client/async_client.js";
+import { b } from "../../baml_client/index.js";
 import {
   EmotionalState,
   NegotiationResponse,
   PaymentPlanValidity,
   SecurityThreatLevel,
   UserIntent,
-} from "../baml_client/types.js";
-import type { EscalationLevel } from "../baml_client/types.js";
+} from "../../baml_client/types.js";
+import type { EscalationLevel } from "../../baml_client/types.js";
 
 // Agent State Interface - Core state management
 export interface AgentState {
@@ -66,10 +66,10 @@ export class NegotiationGraph {
     const lastMessage = this.getLastMessage(state);
     const messageContent = this.extractMessageContent(lastMessage);
     const conversationContext = this.buildConversationContext(state);
+    const bamlClient = b as BamlAsyncClient;
 
     try {
       // Use BAML functions for intent analysis with proper type checking
-      const bamlClient = b as BamlAsyncClient;
 
       const intent = (await bamlClient.AnalyzeUserIntent(
         messageContent,
@@ -106,14 +106,14 @@ export class NegotiationGraph {
   // Story 1.5: Generate contextual opening using BAML
   private async generateContextualOpening(state: AgentState): Promise<AgentState> {
     const userMessage = this.extractMessageContent(state.messages[0]);
+    const bamlClient = b as BamlAsyncClient;
 
     try {
-      const bamlClient = b as BamlAsyncClient;
-      const openingMessage = (await bamlClient.GenerateContextualOpening(
+      const openingMessage = await bamlClient.GenerateContextualOpening(
         userMessage,
         state.user_intent?.toString() || "Unknown",
         state.emotional_state?.toString() || "Calm"
-      )) as string;
+      );
 
       return {
         ...state,
@@ -313,9 +313,9 @@ export class NegotiationGraph {
     const messageContent = this.extractMessageContent(lastMessage);
     const currentOffer = state.current_offer || "No current offer";
     const negotiationHistory = this.buildNegotiationHistory(state);
+    const bamlClient = b as BamlAsyncClient;
 
     try {
-      const bamlClient = b as BamlAsyncClient;
       const response = (await bamlClient.AnalyzeNegotiationResponse(
         messageContent,
         currentOffer,
@@ -358,8 +358,9 @@ export class NegotiationGraph {
 
   // Story 1.5: Validate counter offers
   private async validateCounterOffer(state: AgentState, counterOffer: string): Promise<AgentState> {
+    const bamlClient = b as BamlAsyncClient;
+
     try {
-      const bamlClient = b as BamlAsyncClient;
       const validity = (await bamlClient.ValidatePaymentPlan(
         counterOffer,
         2400,
@@ -437,13 +438,13 @@ export class NegotiationGraph {
   }
 
   private async generateNegotiationResponse(state: AgentState, intent: string, context: string): Promise<string> {
-    try {
-      const lastMessage = this.getLastMessage(state);
-      const userMessage = this.extractMessageContent(lastMessage);
-      const conversationHistory = this.buildConversationContext(state);
+    const lastMessage = this.getLastMessage(state);
+    const userMessage = this.extractMessageContent(lastMessage);
+    const conversationHistory = this.buildConversationContext(state);
+    const bamlClient = b as BamlAsyncClient;
 
-      const bamlClient = b as BamlAsyncClient;
-      const response = (await bamlClient.GenerateNegotiationResponse(
+    try {
+      const response = await bamlClient.GenerateNegotiationResponse(
         userMessage,
         conversationHistory,
         intent,
@@ -451,7 +452,7 @@ export class NegotiationGraph {
         context,
         state.current_offer || "No current offer",
         state.negotiation_attempts || 0
-      )) as string;
+      );
 
       return response;
 
